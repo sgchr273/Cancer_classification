@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from .strategy import Strategy
+import pdb
 
 class MarginSamplingDropout(Strategy):
     def __init__(self, X, Y, idxs_lb, net, handler, args, n_drop=10):

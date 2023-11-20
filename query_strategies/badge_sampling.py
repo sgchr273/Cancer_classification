@@ -40,7 +40,7 @@ from sklearn.utils.validation import FLOAT_DTYPES
 # from sklearn.metrics.pairwise import rbf_kernel as rbf
 #from sklearn.externals.six import string_types
 from sklearn.exceptions import ConvergenceWarning
-# from sklearn.metrics import pairwise_distances
+from sklearn.metrics import pairwise_distances
 
 # kmeans ++ initialization
 def init_centers(X, K):
@@ -74,6 +74,8 @@ def init_centers(X, K):
 class BadgeSampling(Strategy):
     def __init__(self, X, Y, idxs_lb, net, handler, args):
         super(BadgeSampling, self).__init__(X, Y, idxs_lb, net, handler, args)
+        self.savefile = args["savefile"]
+        self.alg = "badge"
 
     def query(self, n):
         idxs_unlabeled = np.arange(self.n_pool)[~self.idxs_lb]

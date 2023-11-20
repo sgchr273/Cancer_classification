@@ -241,8 +241,8 @@ def select(X, K, fisher, iterates, savefile, alg, lamb=1, backwardSteps=0, nLabe
     return indsAll
 
 class BaitSampling(Strategy):
-    def __init__(self, X, Y, idxs_lb, net, handler, args,train_dataset,test_dataset):
-        super(BaitSampling, self).__init__(X, Y, idxs_lb, net, handler, args,train_dataset,test_dataset)
+    def __init__(self, X, Y, idxs_lb, net, handler, args):
+        super(BaitSampling, self).__init__(X, Y, idxs_lb, net, handler, args)
         self.alg = "bait"
         self.fishIdentity = args['fishIdentity']
         self.fishInit = args['fishInit']

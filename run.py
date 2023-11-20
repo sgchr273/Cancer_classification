@@ -3,10 +3,8 @@ import pickle
 from torchvision import transforms
 import numpy as np
 import gc
-#import openml
 import os
 import argparse
-# import resnet
 from sklearn.preprocessing import LabelEncoder
 import torch.nn.functional as F
 from torch import nn
@@ -17,13 +15,11 @@ from dataset import get_dataset, get_handler
 from saving import save_accuracies, save_model
 from model import cancer_model
 
-# import tensorflow as tf
-
 from query_strategies import RandomSampling, BadgeSampling, \
                                 BaselineSampling, LeastConfidence, MarginSampling, \
                                 EntropySampling, CoreSet, ActiveLearningByLearning, \
                                 LeastConfidenceDropout, MarginSamplingDropout, EntropySamplingDropout, \
-                                KMeansSampling, KCenterGreedy, BALDDropout, CoreSet, \
+                                KMeansSampling, KCenterGreedy, BALDDropout,  \
                                 AdversarialBIM, AdversarialDeepFool, ActiveLearningByLearning, BaitSampling, fisher_mask_sampling
 
 parser = argparse.ArgumentParser()
@@ -34,9 +30,9 @@ parser.add_argument('--paramScale', help='learning rate', type=float, default=1)
 parser.add_argument('--model', help='model - resnet, vgg, or mlp', type=str, default='mlp')
 parser.add_argument('--path', help='data path', type=str, default='data')
 parser.add_argument('--data', help='dataset (non-openML)', type=str, default='BreaKHis')
-parser.add_argument('--nQuery', help='number of points to query in a batch', type=int, default=100)
-parser.add_argument('--nStart', help='number of points to start', type=int, default=100)
-parser.add_argument('--nEnd', help = 'total number of points to query', type=int, default=8000)
+parser.add_argument('--nQuery', help='number of points to query in a batch', type=int, default=500)
+parser.add_argument('--nStart', help='number of points to start', type=int, default=500)
+parser.add_argument('--nEnd', help = 'total number of points to query', type=int, default=5000)
 parser.add_argument('--nEmb', help='number of embedding dims (mlp)', type=int, default=128)
 parser.add_argument('--rounds', help='number of embedding dims (mlp)', type=int, default=0)
 parser.add_argument('--trunc', help='number of embedding dims (mlp)', type=int, default=-1)
@@ -49,7 +45,7 @@ parser.add_argument('--fishInit', help='initialize selection with fisher on seen
 parser.add_argument('--backwardSteps', help='openML dataset index, if any', type=int, default=1)
 parser.add_argument('--dummy', help='dummy input for indexing replicates', type=int, default=1)
 parser.add_argument('--pct_top', help='percentage of important weights to use for Fisher', type=float, default=0.01)
-parser.add_argument('--DEBUG', help='provide a size to utilize decreased dataset size for quick run', type=int, default=500)
+parser.add_argument('--DEBUG', help='provide a size to utilize decreased dataset size for quick run', type=int, default=3000)
 parser.add_argument('--savefile', help='name of file to save round accuracies to', type=str, default="cancer_experiment")
 parser.add_argument('--chunkSize', help='for computation inside select function', type=int, default=32)
 # parser.add_argument('--compare', help='previous run to compare to', type=str, required=True, default='random_mask_exp_25K')
@@ -84,19 +80,25 @@ def decrease_dataset(X_tr, Y_tr):
     return new_Xtr, torch.from_numpy(new_Ytr)
 
         
-def exper(alg, X_tr, Y_tr, idxs_lb, cancer_model, handler, args, X_te, Y_te, train_dataset, test_dataset, DATA_NAME, method="standard"):
+def exper(alg, X_tr, Y_tr, idxs_lb, cancer_model, handler, args, X_te, Y_te,  DATA_NAME, method="standard"):
   
 
     time_begin_experiment = time.time()
     # set up the specified sampler
     if alg == 'bait': # bait sampling
-        strategy = BaitSampling(X_tr, Y_tr, idxs_lb, cancer_model , handler, args, train_dataset, test_dataset)
+        strategy = BaitSampling(X_tr, Y_tr, idxs_lb, cancer_model , handler, args)
     elif alg == 'fish': # fisher mask based sampling
         strategy = fisher_mask_sampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args, method)
     elif alg == 'rand':
         strategy = RandomSampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)
-    elif alg == 'coreset': # coreset sampling
-        strategy = CoreSet(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)
+    elif alg == 'margin': # coreset sampling
+        strategy = MarginSampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)
+    elif alg == 'badge': # coreset sampling
+        strategy = BadgeSampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)
+    elif alg == 'kmeans':
+        strategy = KMeansSampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)
+    elif alg == 'lcs':
+        strategy = LeastConfidence(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)
     elif alg == 'entropy': # entropy-based sampling
         strategy = EntropySampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)
     else: 
@@ -108,16 +110,15 @@ def exper(alg, X_tr, Y_tr, idxs_lb, cancer_model, handler, args, X_te, Y_te, tra
     print(DATA_NAME, flush=True)
     print(type(strategy).__name__, flush=True)
 
-    # if type(X_te) == torch.Tensor: X_te = X_te.numpy()
+    if type(X_te) == torch.Tensor: X_te = X_te.numpy()
 
     strategy.clf = cancer_model.cuda()
-    P = strategy.predict(X_te, Y_te)
-    # P = cancer_model.predict(X_te)
+    P, precision, recall, f1 = strategy.predict(X_te, Y_te)
     accur = 1.0 * (Y_te == P).sum().item() / len(Y_te)
-    # accur = 1.0 * (Y_te == P.cpu().numpy()).astype(int).sum() / len(Y_te)
+    print(str(opts.nStart) + '\t' + 'testing accuracy {} \t precision {} \t recall {} \t f1 score {}'.format(accur, precision,recall, f1), flush=True)
+
 
     save_accuracies(accur, opts.savefile, alg)
-    print(str(opts.nStart) + '\ttesting accuracy {}'.format(accur), flush=True)
 
     for rd in range(1, NUM_ROUND+1):
         print('Total rounds:',int((opts.DEBUG - NUM_INIT_LB)/ opts.nQuery)+1)
@@ -141,13 +142,13 @@ def exper(alg, X_tr, Y_tr, idxs_lb, cancer_model, handler, args, X_te, Y_te, tra
         strategy.train(verbose=True)
         predict_time = time.time()
         print('Train took:', predict_time - train_time)
-        P = strategy.predict(X_te, Y_te)
+        P, precision, recall, f1 = strategy.predict(X_te, Y_te)
         # P = cancer_model.predict(X_te)
         end_time = time.time()
         print('Predict took:', end_time - predict_time)
         accur = 1.0 * (Y_te == P).sum().item() / len(Y_te)
         save_accuracies(accur, opts.savefile, alg)
-        print(str(sum(idxs_lb)) + '\t' + 'testing accuracy {}'.format(accur), flush=True)
+        print(str(sum(idxs_lb)) + '\t' + 'testing accuracy {} \t precision {} \t recall {} \t f1 score {}'.format(accur, precision,recall, f1), flush=True)
         if sum(~strategy.idxs_lb) < opts.nQuery: break
         if opts.rounds > 0 and rd == (opts.rounds - 1): break
         time_end_experiment = time.time()
@@ -194,7 +195,7 @@ def main():
                     ]),
                     'loader_tr_args':{'batch_size': 64, 'num_workers': 1},
                     'loader_te_args':{'batch_size': 64, 'num_workers': 1},
-                    'optimizer_args':{'lr': 0.0001, 'momentum': 0.5},
+                    'optimizer_args':{'lr': 0.000001, 'momentum': 0.5},
                     'transformTest' : transforms.Compose([
                         transforms.RandomRotation(20),
                         transforms.RandomHorizontalFlip(),
@@ -258,14 +259,7 @@ def main():
 
     # load non-openml dataset
     else:
-        # train_path = '/usr/local/home/sgchr/Documents/active_nn/freshBAIT/lidc/Train.pt'
-        # checkpoint = torch.load(train_path)
-        # X_tr, Y_tr = checkpoint[0], checkpoint[1]
-        # test_path = '/usr/local/home/sgchr/Documents/active_nn/freshBAIT/lidc/Test.pt'
-        # checkpoint_2 = torch.load(test_path)
-        # X_te, Y_te = checkpoint_2[0], checkpoint_2[1]
-        # opts.dim = np.shape(X_tr)[1:]
-        X_tr, X_te, Y_tr, Y_te, train_dataset, test_dataset = get_dataset()
+        X_tr, X_te, Y_tr, Y_te = get_dataset()
         handler = get_handler(opts.data)
         if opts.DEBUG:
             X_tr, Y_tr = decrease_dataset(X_tr, Y_tr)
@@ -325,7 +319,7 @@ def main():
     if type(X_tr[0]) is not np.ndarray:
         X_tr = X_tr.numpy()
 
-    exper(alg = "bait",  X_tr = X_tr, Y_tr = Y_tr, idxs_lb = idxs_lb, cancer_model = cancer_model, handler = handler, args = args, X_te = X_te, Y_te = Y_te, train_dataset=train_dataset, test_dataset=test_dataset, DATA_NAME = DATA_NAME)
+    exper(alg ='entropy',  X_tr = X_tr, Y_tr = Y_tr, idxs_lb = idxs_lb, cancer_model = cancer_model, handler = handler, args = args, X_te= X_te, Y_te=Y_te,  DATA_NAME = DATA_NAME)
     # reset variables
     idxs_lb = init_labeled
     # load_model(1, net, opts.savefile, "BAIT") # load the checkpoint for rd 1 of BAIT

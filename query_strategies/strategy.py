@@ -10,31 +10,16 @@ from torch.utils.data import DataLoader
 from copy import deepcopy
 import pdb
 import time
-from torch.optim.lr_scheduler import LambdaLR
-from torch.optim.lr_scheduler import StepLR
-# import resnet
-# from torchvision.models import resnet18, ResNet18_Weights
-# from torch.distributions.categorical import Categorical
-# class CustomLRScheduler(LambdaLR):
-#     def __init__(self, optimizer: optim, initial_lr: float, decay_steps: int, decay_rate: float, last_epoch: int = -1):
-#         self.initial_lr = initial_lr
-#         self.decay_steps = decay_steps
-#         self.decay_rate = decay_rate
-#         super(CustomLRScheduler, self).__init__(optimizer, self.lr_lambda, last_epoch)
-
-#     def lr_lambda(self, epoch):
-#         return self.initial_lr / (1 + self.decay_rate * epoch / self.decay_steps)
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 class Strategy:
-    def __init__(self, X, Y, idxs_lb, net, handler, args,train_dataset, test_dataset):
+    def __init__(self, X, Y, idxs_lb, net, handler, args):
         self.X = X
         self.Y = Y
         self.idxs_lb = idxs_lb
         self.net = net
         self.handler = handler
         self.args = args
-        self.train_dataset = train_dataset
-        self.test_dataset = test_dataset
         self.n_pool = len(Y)
         use_cuda = torch.cuda.is_available()
 
@@ -56,6 +41,7 @@ class Strategy:
             accFinal += torch.sum((torch.max(out,1)[1] == y)).float().data.item()
             loss.backward()
             batch_loss +=loss.item()
+
             # clamp gradients, just in case
             for p in filter(lambda p: p.grad is not None, self.clf.parameters()): p.grad.data.clamp_(min=-.1, max=.1)
             optimizer.step()
@@ -106,7 +92,7 @@ class Strategy:
         if verbose: print(' ',flush=True)
         if verbose: print('getting validation minimizing number of epochs', flush=True)
         self.clf =  self.net.apply(weight_reset).cuda()
-        if opt == 'adam': optimizer = optim.Adam(self.clf.parameters(), lr=self.args['lr'], weight_decay=0)
+        if opt == 'adam': optimizer = optim.Adam(self.clf.parameters(), lr=self.args['lr'], weight_decay=0.3)
         if opt == 'sgd': optimizer = optim.SGD(self.clf.parameters(), lr=self.args['lr'], weight_decay=0)
 
         idxs_train = np.arange(self.n_pool)[self.idxs_lb]
@@ -259,11 +245,16 @@ class Strategy:
         with torch.no_grad():
             for x, y, idxs in loader_te:
                 x, y = Variable(x.cuda()), Variable(y.cuda())
-                # x = torch.tensor.permute(0,1,3,2)
                 out, e1 = self.clf(x)
                 pred = out.max(1)[1]
                 P[idxs] = pred.data.cpu()
-        return P
+                # pred = pred.cpu().detach().numpy()
+                y = y.cpu().detach().numpy()
+                precision = precision_score(pred.data.cpu(), y)
+                recall = recall_score(pred.data.cpu(), y)
+                f1 = f1_score(pred.data.cpu(), y)
+        return P, precision, recall, f1
+    
         # loader_te = DataLoader(self.test_dataset, batch_size=1000)
         # P = torch.zeros(len(loader_te.dataset)).long().cuda()
         # all_labels = torch.zeros(len(loader_te.dataset)).long().cuda()
