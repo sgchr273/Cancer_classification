@@ -1,3 +1,5 @@
+
+#  python  baselines.py --DEBUG 8000 
 import pickle
 from torchvision import transforms
 import argparse
@@ -100,10 +102,10 @@ if __name__=="__main__":
     print('number of unlabeled pool: {}'.format(n_pool - NUM_INIT_LB), flush=True)
     print('number of testing pool: {}'.format(n_test), flush=True)
 
-    net = CancerModel()
-    for i in range(10):
+    net = CancerModel(num_classes=2)
+    for i in range(1):
         opts.savefile = SAVE_FILE + str(i)
-        net = CancerModel()
+        net = CancerModel(num_classes=2)
         load_model(1, net, opts.savefile, 'entropy')
         idxs_lb = np.zeros(n_pool, dtype=bool)
         idxs_tmp = np.arange(n_pool)
@@ -112,67 +114,66 @@ if __name__=="__main__":
         init_labeled = np.copy(idxs_lb)
         with open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + '.p', "wb") as savefile:
             pickle.dump(init_labeled, savefile)
-        exper('entropy', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME)
- 
-    net = CancerModel()
-    for i in range(10):
+        exper('entropy', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME)        
+    net = CancerModel(num_classes=2)
+    for i in range(1):
         opts.savefile = SAVE_FILE + str(i)
         load_model(1, net, opts.savefile, 'entropy')
         idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
         exper('bait', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME) 
 
-
-    net = CancerModel()
-    for i in range(5):
+        
+    net = CancerModel(num_classes=2)
+    for i in range(1):
         opts.savefile = SAVE_FILE + str(i)
         load_model(1, net, opts.savefile, 'entropy')
         idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
         exper('rand', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME) 
-
-    net = CancerModel()
-    for i in range(5):
+    
+    net = CancerModel(num_classes=2)
+    for i in range(1):
         opts.savefile = SAVE_FILE + str(i)
         load_model(1, net, opts.savefile, 'entropy')
         idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
         exper('margin', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME) 
     
-    net = CancerModel()
-    for i in range(5):
+    net = CancerModel(num_classes=2)
+    for i in range(1):
         opts.savefile = SAVE_FILE + str(i)
         load_model(1, net, opts.savefile, 'entropy')
         idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
         exper('badge', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME) 
 
-    net = CancerModel()
-    for i in range(5):
-        opts.savefile = SAVE_FILE + str(i)
-        load_model(1, net, opts.savefile, 'entropy')
-        idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
-        exper('kmeans', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME) 
+    # net = CancerModel(num_classes=2)
+    # for i in range(1):
+    #     opts.savefile = SAVE_FILE + str(i)
+    #     load_model(1, net, opts.savefile, 'entropy')
+    #     idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
+    #     exper('kmeans', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME) 
 
-    net = CancerModel()
-    for i in range(5):
-        opts.savefile = SAVE_FILE + str(i)
-        load_model(1, net, opts.savefile, 'entropy')
-        idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
-        exper('lcs', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME) 
+    # net = CancerModel(num_classes=2)
+    # for i in range(1):
+    #     opts.savefile = SAVE_FILE + str(i)
+    #     load_model(1, net, opts.savefile, 'entropy')
+    #     idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
+    #     exper('lcs', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME) 
 
-
-    # for i in range(10):
+    # net = CancerModel(num_classes=2)
+    # for i in range(5):
     #     opts.savefile = SAVE_FILE + str(i)
     #     load_model(1, net, opts.savefile, 'entropy')
     #     idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
     #     opts.savefile = SAVE_FILE + str(i) + "_standard"
-    #     exper('FISH', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME, method="standard")
+    #     exper('fish', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME, method="standard")
 
-    # net = cancer_model(num_classes=2)
-    # for i in range(10):
+    # net = CancerModel(num_classes=2)
+    # for i in range(5):
     #     opts.savefile = SAVE_FILE + str(i)
     #     load_model(1, net, opts.savefile, 'entropy')
     #     idxs_lb = pickle.load(open("./Save/Queried_idxs/InitLabeled_" + opts.savefile + ".p", "rb"))
     #     opts.savefile = SAVE_FILE + str(i) + "_dispersed"
-    #     exper('FISH', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME, method="dispersed")
-  
+    #     exper('fish', X_tr, Y_tr, idxs_lb, net, handler, args, X_te, Y_te, DATA_NAME, method="dispersed")
+
     # net = cancer_model(num_classes=2)
     # for i in range(10):
     #     opts.savefile = SAVE_FILE + str(i)

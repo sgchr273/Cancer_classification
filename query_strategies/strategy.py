@@ -9,11 +9,13 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from copy import deepcopy
 import pdb
+import torchvision
+from torchvision import transforms
 import time
 from sklearn.metrics import precision_score, recall_score, f1_score
 
 class Strategy:
-    def __init__(self, X, Y, idxs_lb, net, handler, args):
+    def __init__(self, X, Y, idxs_lb, net, handler,  args):
         self.X = X
         self.Y = Y
         self.idxs_lb = idxs_lb
@@ -50,7 +52,7 @@ class Strategy:
     def train(self, reset=True, optimizer=0, verbose=True, data=[], net=[]):
         def weight_reset(m):
             newLayer = deepcopy(m)
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear) or isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
                 m.reset_parameters()
        
         n_epoch = self.args['n_epoch']
@@ -61,11 +63,59 @@ class Strategy:
         idxs_train = np.arange(self.n_pool)[self.idxs_lb]
         # preprocess = ResNet18_Weights.DEFAULT.transforms()
         loader_tr = DataLoader(self.handler(self.X[idxs_train], torch.Tensor(self.Y.numpy()[idxs_train]).long(), transform = self.args['transform']), shuffle=True, **self.args['loader_tr_args'])
+        
+        
+        # validation set loading
+        X_val, Y_val = [], []
+        val_dataset = torchvision.datasets.ImageFolder('/usr/local/home/sgchr/Documents/Cancer_classification/BreaKHis_v1/Cancer_validation',transform=transforms.Compose([transforms.ToTensor(), transforms.RandomResizedCrop(32)]) )
+        loader_val = DataLoader(val_dataset, batch_size=1000)
+        for (x,y) in loader_val:
+            X_val.append(x), Y_val.append(y)
+
+        X_val = torch.cat(X_val, dim=0)
+        X_val = X_val.permute(0, 2, 3, 1)
+        X_val = X_val.numpy()
+
+        Y_val = torch.cat(Y_val, dim=0)
 
         epoch = 1
         accCurrent = 0.
         bestAcc = 0.
         attempts = 0
+        ref = 0
+        epochs_without_improvement = 0
+        patience = 5
+
+        # while True:
+
+            # start_train = time.time()
+            # accCurrent, lossCurrent = self._train(epoch, loader_tr, optimizer)
+            # P , _,_,_= self.predict(X_val, Y_val)
+            # valAcc = 1.0 * (Y_val == P).sum().item() / len(Y_val)
+            
+            # if valAcc >= ref:
+            #     ref = valAcc
+            #     epochs_without_improvement = 0
+            # else:
+            #     epochs_without_improvement += 1
+
+            # if epochs_without_improvement == patience:
+            #     print(f'Early stopping after {epoch + 1} epochs without improvement.')
+            #     break
+
+            # if bestAcc < accCurrent:
+            #     bestAcc = accCurrent
+            #     attempts = 0
+            # else: attempts += 1
+            # epoch += 1
+            # if verbose: print(str(epoch) + ' ' + str(attempts) + ' training accuracy: ' + str(accCurrent), flush=True)
+            # # reset if not converging
+            # if (epoch % 1000 == 0) and (accCurrent < 0.2) and (self.args['modelType'] != 'linear'):
+            #     self.clf = self.net.apply(weight_reset).cuda() 
+            #     optimizer = optim.Adam(self.clf.parameters(), lr = self.args['lr'], weight_decay=0)
+            # if attempts >= 50 and self.args['modelType'] == 'linear': break
+
+
         while accCurrent < 0.95:  # <--- reduce this number for faster trainng in DEBUG
             start_train = time.time()
             accCurrent, lossCurrent = self._train(epoch, loader_tr, optimizer)
@@ -75,6 +125,8 @@ class Strategy:
                 attempts = 0
             else: attempts += 1
             epoch += 1
+            if epoch == 15:
+                break
             if verbose: print(str(epoch) + ' ' + str(attempts) + ' training accuracy: ' + str(accCurrent), flush=True)
             # reset if not converging
             if (epoch % 1000 == 0) and (accCurrent < 0.2) and (self.args['modelType'] != 'linear'):
@@ -92,7 +144,7 @@ class Strategy:
         if verbose: print(' ',flush=True)
         if verbose: print('getting validation minimizing number of epochs', flush=True)
         self.clf =  self.net.apply(weight_reset).cuda()
-        if opt == 'adam': optimizer = optim.Adam(self.clf.parameters(), lr=self.args['lr'], weight_decay=0.3)
+        if opt == 'adam': optimizer = optim.Adam(self.clf.parameters(), lr=self.args['lr'], weight_decay=0.5)
         if opt == 'sgd': optimizer = optim.SGD(self.clf.parameters(), lr=self.args['lr'], weight_decay=0)
 
         idxs_train = np.arange(self.n_pool)[self.idxs_lb]
@@ -251,7 +303,7 @@ class Strategy:
                 # pred = pred.cpu().detach().numpy()
                 y = y.cpu().detach().numpy()
                 precision = precision_score(pred.data.cpu(), y)
-                recall = recall_score(pred.data.cpu(), y)
+                recall = recall_score(pred.data.cpu(), y, zero_division=1)
                 f1 = f1_score(pred.data.cpu(), y)
         return P, precision, recall, f1
     
