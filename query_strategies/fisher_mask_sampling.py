@@ -19,7 +19,7 @@ from saving import save_imp_weights, save_queried_idx
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class fisher_mask_sampling(Strategy):
-    def __init__(self, X, Y, idxs_lb, net, handler, args, method):
+    def __init__(self, X, Y, idxs_lb, net, handler, args):   #last argument is method
         super(fisher_mask_sampling, self).__init__(X, Y, idxs_lb, net, handler, args)
         self.alg = "FISH"
         self.fishIdentity = args['fishIdentity']
@@ -29,7 +29,7 @@ class fisher_mask_sampling(Strategy):
         self.pct_top = args['pct_top']
         self.savefile = args["savefile"]
         self.chunkSize = args["chunkSize"]
-        self.method = method
+        # self.method = method
         self.rand_mask = self.calculate_random_mask(1280)
 
     def calculate_fishmask(self, pct_top=0.02, method="standard"):
@@ -219,12 +219,12 @@ class fisher_mask_sampling(Strategy):
     def query(self, n):
         self.fishIdentity == 0
         #imp_wt_idxs = self.calculate_fishmask(self.pct_top)
-        if self.method != "random":
-            imp_wt_idxs = self.calculate_fishmask(self.pct_top, self.method)
+        # if self.method != "random":
+        # imp_wt_idxs = self.calculate_fishmask(self.pct_top, method = 'standard')  #self.method
             # print('imp_wts_idxs', [len(i) for i in imp_wt_idxs])
-        else:
-            imp_wt_idxs = self.rand_mask
-        save_imp_weights(imp_wt_idxs, self.savefile, self.method)
+        # else:
+        imp_wt_idxs = self.rand_mask
+        save_imp_weights(imp_wt_idxs, self.savefile, method = 'standard')  # self.method
         xt = self.log_prob_grads_wrt(imp_wt_idxs)
         # print(xt.shape,'here')
         torch.cuda.empty_cache()

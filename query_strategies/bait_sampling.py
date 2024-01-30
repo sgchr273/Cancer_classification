@@ -180,6 +180,7 @@ def select(X, K, fisher, iterates, savefile, alg, lamb=1, backwardSteps=0, nLabe
     currentInv = torch.inverse(lamb * torch.eye(dim).cuda() + iterates.cuda() * nLabeled / (nLabeled + K))
     X = X * np.sqrt(K / (nLabeled + K))
     xt_ = X
+    xt_ = xt_.cuda()
     #chunkSize = min(X.shape[0], chunkSize)
     total_len = xt_.shape[0]
     NUM_GPUS = torch.cuda.device_count()

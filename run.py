@@ -30,9 +30,9 @@ parser.add_argument('--paramScale', help='learning rate', type=float, default=1)
 parser.add_argument('--model', help='model - resnet, vgg, or mlp', type=str, default='mlp')
 parser.add_argument('--path', help='data path', type=str, default='data')
 parser.add_argument('--data', help='dataset (non-openML)', type=str, default='BreaKHis')
-parser.add_argument('--nQuery', help='number of points to query in a batch', type=int, default=800)
-parser.add_argument('--nStart', help='number of points to start', type=int, default=800)
-parser.add_argument('--nEnd', help = 'total number of points to query', type=int, default=8000)
+parser.add_argument('--nQuery', help='number of points to query in a batch', type=int, default=300)
+parser.add_argument('--nStart', help='number of points to start', type=int, default=300)
+parser.add_argument('--nEnd', help = 'total number of points to query', type=int, default=3000)
 parser.add_argument('--nEmb', help='number of embedding dims (mlp)', type=int, default=128)
 parser.add_argument('--rounds', help='number of embedding dims (mlp)', type=int, default=0)
 parser.add_argument('--trunc', help='number of embedding dims (mlp)', type=int, default=-1)
@@ -42,10 +42,10 @@ parser.add_argument('--aug', help='do augmentation (for cifar)', type=int, defau
 parser.add_argument('--lamb', help='lambda', type=float, default=1)
 parser.add_argument('--fishIdentity', help='for ablation, setting fisher to be identity', type=int, default=0)
 parser.add_argument('--fishInit', help='initialize selection with fisher on seen data', type=int, default=1)
-parser.add_argument('--backwardSteps', help='openML dataset index, if any', type=int, default=1)
+parser.add_argument('--backwardSteps', help='openML dataset index, if any', type=int, default=0)
 parser.add_argument('--dummy', help='dummy input for indexing replicates', type=int, default=1)
 parser.add_argument('--pct_top', help='percentage of important weights to use for Fisher', type=float, default=0.01)
-parser.add_argument('--DEBUG', help='provide a size to utilize decreased dataset size for quick run', type=int, default=8000)
+parser.add_argument('--DEBUG', help='provide a size to utilize decreased dataset size for quick run', type=int, default=3000)
 parser.add_argument('--savefile', help='name of file to save round accuracies to', type=str, default="cancer_experiment")
 parser.add_argument('--chunkSize', help='for computation inside select function', type=int, default=32)
 # parser.add_argument('--compare', help='previous run to compare to', type=str, required=True, default='random_mask_exp_25K')
@@ -80,7 +80,7 @@ def decrease_dataset(X_tr, Y_tr):
     return new_Xtr, torch.from_numpy(new_Ytr)
 
         
-def exper(alg, X_tr, Y_tr, idxs_lb, cancer_model, handler, args, X_te, Y_te,  DATA_NAME, method="standard"):
+def exper(alg, X_tr, Y_tr, idxs_lb, cancer_model, handler, args, X_te, Y_te,  DATA_NAME):
   
 
     time_begin_experiment = time.time()
@@ -88,7 +88,7 @@ def exper(alg, X_tr, Y_tr, idxs_lb, cancer_model, handler, args, X_te, Y_te,  DA
     if alg == 'bait': # bait sampling
         strategy = BaitSampling(X_tr, Y_tr, idxs_lb, cancer_model , handler, args)
     elif alg == 'fish': # fisher mask based sampling
-        strategy = fisher_mask_sampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args, method)
+        strategy = fisher_mask_sampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)   #method
     elif alg == 'rand':
         strategy = RandomSampling(X_tr, Y_tr, idxs_lb, cancer_model, handler, args)
     elif alg == 'margin': # coreset sampling
